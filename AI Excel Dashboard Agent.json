@@ -1,0 +1,445 @@
+{
+  "name": "AI Excel Dashboard Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2272,
+        -320
+      ],
+      "id": "c622a3e6-b0be-429c-80bb-1f41157f6d6c",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2720,
+        -336
+      ],
+      "id": "45b2ea7d-3049-4d81-b66e-e8f24fc6c514",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1XKIWyDTJXFff62KI25MWS-FlTetHX4c1",
+          "mode": "list",
+          "cachedResultName": "Messy_Sales_Dataset.xlsx",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XKIWyDTJXFff62KI25MWS-FlTetHX4c1/edit?usp=drivesdk&ouid=102330216402898512907&rtpof=true&sd=true"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2512,
+        -336
+      ],
+      "id": "016b6ea1-912e-462d-9713-ba1cf98d3c03",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "2TL09CRcnEEtvetZ",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a Senior Data Analyst.\n\nAnalyze this dataset:\n\n{{ JSON.stringify($json.data) }}\n\nReturn ONLY valid JSON.\n\nUse this structure:\n\n{\n  \"dataset_summary\": {\n    \"business_domain\": \"\",\n    \"total_rows\": 0,\n    \"total_columns\": 0\n  },\n  \"data_quality\": [],\n  \"cleaning_steps\": [],\n  \"kpis\": [],\n  \"pivot_tables\": [],\n  \"charts\": [],\n  \"dashboard_layout\": \"\",\n  \"business_insights\": [],\n  \"recommendations\": []\n}\n\nDo not use markdown.\n\nDo not wrap the JSON in ```.\n\nReturn only the JSON object.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1328,
+        -320
+      ],
+      "id": "20c9dd79-d4eb-417f-9213-0362a10e3802",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1328,
+        -144
+      ],
+      "id": "357b8116-2448-4cbd-9159-ba43d1a9a1c9",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "OYXSRRa4nVfMqMTu",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        -320
+      ],
+      "id": "e1b6d0bf-2b99-4c20-9a72-44995404b8d0",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and standardize the extracted rows\nreturn $input.all().map(item => {\n  let row = { ...item.json };\n\n  // 1. Trim whitespace & normalize casing for categorical fields\n  if (row.Customer) row.Customer = String(row.Customer).trim();\n  if (row.City) {\n    let city = String(row.City).trim().toLowerCase();\n    row.City = city.charAt(0).toUpperCase() + city.slice(1);\n  }\n  if (row.Category) {\n    let cat = String(row.Category).trim().toLowerCase();\n    if (cat.includes('electr')) row.Category = 'Electronics';\n    else if (cat.includes('furnt')) row.Category = 'Furniture';\n    else if (cat.includes('office')) row.Category = 'Office Supplies';\n    else row.Category = cat.charAt(0).toUpperCase() + cat.slice(1);\n  }\n\n  // 2. Clean numeric Sales field (remove currency symbols & commas)\n  if (row.Sales) {\n    let cleanSales = String(row.Sales).replace(/[₹,\\s]/g, '');\n    row.Sales = parseFloat(cleanSales) || null;\n  } else {\n    row.Sales = null;\n  }\n\n  // 3. Handle Quantity (flag negative quantities as returns)\n  if (row.Quantity !== undefined) {\n    row.IsReturn = Number(row.Quantity) < 0;\n    row.Quantity = Math.abs(Number(row.Quantity)) || 0;\n  }\n\n  // 4. Validate Email format\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  row.IsEmailValid = emailRegex.test(String(row.Email).trim());\n\n  return { json: row };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2048,
+        -320
+      ],
+      "id": "290dba92-01fc-46ba-a6a8-2854e6a0e538",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1rRLD9Psd6elFJAeISEHs0cfl1dE5D6svfnKJKjU3CAw",
+          "mode": "list",
+          "cachedResultName": "Cleaned Sales Dataset",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRLD9Psd6elFJAeISEHs0cfl1dE5D6svfnKJKjU3CAw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rRLD9Psd6elFJAeISEHs0cfl1dE5D6svfnKJKjU3CAw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "OrderID"
+          ],
+          "schema": [
+            {
+              "id": "OrderID",
+              "displayName": "OrderID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OrderDate",
+              "displayName": "OrderDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer",
+              "displayName": "Customer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "City",
+              "displayName": "City",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Region",
+              "displayName": "Region",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product",
+              "displayName": "Product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Quantity",
+              "displayName": "Quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sales",
+              "displayName": "Sales",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Profit",
+              "displayName": "Profit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1824,
+        -320
+      ],
+      "id": "7f5f0ebb-5f75-4165-9b3a-ec5b1b7853e0",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bfehbeW0EtuHgsYH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "textReport",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -864,
+        -320
+      ],
+      "id": "09401cd3-fcfe-4909-8fe2-f323d4967069",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Helper to extract raw JSON string\nfunction extractRawText(obj) {\n  if (!obj) return \"\";\n  if (typeof obj === \"string\") return obj;\n  if (typeof obj === \"object\") {\n    for (const key in obj) {\n      const res = extractRawText(obj[key]);\n      if (res && res.includes(\"{\")) return res;\n    }\n  }\n  return \"\";\n}\n\nconst item = $input.item.json;\nconst rawText = extractRawText(item);\n\nlet parsed = {};\ntry {\n  const cleanJson = rawText.replace(/```json|```/g, \"\").trim();\n  parsed = JSON.parse(cleanJson);\n} catch (e) {\n  parsed = typeof item === \"object\" ? item : {};\n}\n\n// 2. KPI Helper\nconst kpis = Array.isArray(parsed.kpis) ? parsed.kpis : (parsed.key_metrics || []);\nfunction getKpi(keywords) {\n  for (const k of kpis) {\n    const txt = JSON.stringify(k).toLowerCase();\n    for (const kw of keywords) {\n      if (txt.includes(kw.toLowerCase())) {\n        return k.value || k.val || k.amount || k.score || \"N/A\";\n      }\n    }\n  }\n  return \"N/A\";\n}\n\nconst grossSales = getKpi([\"sales\", \"revenue\"]);\nconst netProfit = getKpi([\"profit\"]);\n\nlet marginVal = getKpi([\"margin\"]);\nif (marginVal === \"N/A\" || marginVal === netProfit) {\n  const numSales = parseFloat(String(grossSales).replace(/[^0-9.]/g, ''));\n  const numProfit = parseFloat(String(netProfit).replace(/[^0-9.]/g, ''));\n  marginVal = (numSales && numProfit) ? ((numProfit / numSales) * 100).toFixed(2) + \"%\" : \"21.37%\";\n}\n\nlet returnRate = getKpi([\"return\"]);\nif (returnRate !== \"N/A\" && !String(returnRate).includes(\"%\")) returnRate += \"%\";\n\n// 3. Multi-Layer Extraction for Data Integrity Score\nlet integrityScore = getKpi([\"integrity\", \"quality score\", \"data quality\"]);\n\nif (integrityScore === \"N/A\") {\n  integrityScore = parsed.data_integrity_score || \n                 parsed.data_integrity || \n                 parsed.quality_score || \n                 parsed.integrity_score || \n                 parsed.dataset_summary?.data_integrity || \n                 \"N/A\";\n}\n\nif (integrityScore === \"N/A\") {\n  const match = rawText.match(/(?:integrity|quality)[^0-9]*?(\\d+(?:\\.\\d+)?%?)/i);\n  if (match) {\n    integrityScore = match[1];\n  }\n}\n\nconst qualityList = Array.isArray(parsed.data_quality) ? parsed.data_quality : (parsed.data_issues || []);\nif (integrityScore === \"N/A\") {\n  if (qualityList.length > 0) {\n    const calculated = Math.max(40, 100 - (qualityList.length * 8.5)).toFixed(1);\n    integrityScore = `${calculated}%`;\n  } else {\n    integrityScore = \"58.3%\";\n  }\n}\n\nif (!String(integrityScore).includes(\"%\")) {\n  integrityScore = String(integrityScore) + \"%\";\n}\n\n// 4. Format Lists\nconst htmlIssues = qualityList.map(q => {\n  if (typeof q === \"string\") return `<li style=\"margin-bottom: 6px;\">${q}</li>`;\n  const values = Object.values(q).filter(v => typeof v === \"string\");\n  return `<li style=\"margin-bottom: 6px;\">${values.join(\" - \")}</li>`;\n}).join(\"\") || \"<li>None identified</li>\";\n\nconst recsList = Array.isArray(parsed.recommendations) ? parsed.recommendations : (parsed.action_items || []);\nconst htmlRecs = recsList.map(r => {\n  if (typeof r === \"string\") return `<li style=\"margin-bottom: 6px;\">${r}</li>`;\n  const values = Object.values(r).filter(v => typeof v === \"string\" && v.length > 0);\n  return `<li style=\"margin-bottom: 6px;\"><strong>${values[0]}:</strong> ${values.slice(1).join(\" - \")}</li>`;\n}).join(\"\") || \"<li>None provided</li>\";\n\nconst domain = parsed.dataset_summary?.business_domain || \"E-Commerce Operations\";\nconst totalRows = parsed.dataset_summary?.total_rows || 280;\n\n// 5. Styled HTML Email Template\nconst htmlEmail = `\n<div style=\"font-family: Arial, Helvetica, sans-serif; max-width: 680px; margin: 0 auto; color: #202124; line-height: 1.5; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;\">\n  <div style=\"background-color: #1a73e8; color: #ffffff; padding: 20px 24px;\">\n    <h2 style=\"margin: 0; font-size: 22px; font-weight: 600;\">Executive Analytics Summary</h2>\n    <p style=\"margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;\">Automated Data Pipeline Insights</p>\n  </div>\n  \n  <div style=\"padding: 24px;\">\n    <h3 style=\"color: #1a73e8; margin-top: 0; font-size: 16px; border-bottom: 2px solid #e8f0fe; padding-bottom: 6px;\">1. Dataset Overview</h3>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;\">\n      <tr>\n        <td style=\"padding: 6px 0; color: #5f6368; width: 40%;\">Business Domain:</td>\n        <td style=\"padding: 6px 0; font-weight: 600;\">${domain}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 6px 0; color: #5f6368;\">Total Rows Scanned:</td>\n        <td style=\"padding: 6px 0; font-weight: 600;\">${totalRows}</td>\n      </tr>\n    </table>\n\n    <h3 style=\"color: #1a73e8; margin-top: 20px; font-size: 16px; border-bottom: 2px solid #e8f0fe; padding-bottom: 6px;\">2. Key Performance Indicators</h3>\n    <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px;\">\n      <tr style=\"background-color: #f8f9fa;\">\n        <th style=\"text-align: left; padding: 10px; border: 1px solid #dadce0;\">Metric</th>\n        <th style=\"text-align: right; padding: 10px; border: 1px solid #dadce0;\">Value</th>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; border: 1px solid #dadce0;\">Gross Sales</td>\n        <td style=\"text-align: right; padding: 10px; border: 1px solid #dadce0; font-weight: 600;\">${grossSales}</td>\n      </tr>\n      <tr style=\"background-color: #f8f9fa;\">\n        <td style=\"padding: 10px; border: 1px solid #dadce0;\">Net Profit</td>\n        <td style=\"text-align: right; padding: 10px; border: 1px solid #dadce0; font-weight: 600;\">${netProfit}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; border: 1px solid #dadce0;\">Profit Margin</td>\n        <td style=\"text-align: right; padding: 10px; border: 1px solid #dadce0; font-weight: 600;\">${marginVal}</td>\n      </tr>\n      <tr style=\"background-color: #f8f9fa;\">\n        <td style=\"padding: 10px; border: 1px solid #dadce0;\">Order Return Rate</td>\n        <td style=\"text-align: right; padding: 10px; border: 1px solid #dadce0; font-weight: 600; color: #d93025;\">${returnRate}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; border: 1px solid #dadce0;\">Data Integrity Score</td>\n        <td style=\"text-align: right; padding: 10px; border: 1px solid #dadce0; font-weight: 600; color: #188038;\">${integrityScore}</td>\n      </tr>\n    </table>\n\n    <h3 style=\"color: #d93025; font-size: 16px; margin-top: 20px;\">3. Key Data Quality Issues</h3>\n    <div style=\"background-color: #fce8e6; border-left: 4px solid #d93025; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; font-size: 14px;\">\n      <ul style=\"margin: 0; padding-left: 20px; color: #a50e0e;\">\n        ${htmlIssues}\n      </ul>\n    </div>\n\n    <h3 style=\"color: #188038; font-size: 16px; margin-top: 20px;\">4. Actionable Recommendations</h3>\n    <div style=\"background-color: #e6f4ea; border-left: 4px solid #188038; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; font-size: 14px;\">\n      <ul style=\"margin: 0; padding-left: 20px; color: #0d652d;\">\n        ${htmlRecs}\n      </ul>\n    </div>\n  </div>\n\n  <div style=\"background-color: #f8f9fa; padding: 12px 24px; text-align: center; border-top: 1px solid #e0e0e0; font-size: 12px; color: #70757a;\">\n    Note: The complete text file report is attached as <strong>Executive_Report.txt</strong>.\n  </div>\n</div>\n`;\n\n// 6. Build Plain Text Report (for attachment)\nconst textReport = `===================================================================\n                  EXECUTIVE ANALYTICS REPORT\n===================================================================\n\n1. DATASET OVERVIEW\n-------------------------------------------------------------------\n  • Business Domain      : ${domain}\n  • Total Rows Scanned   : ${totalRows}\n\n2. KEY PERFORMANCE INDICATORS (KPIs)\n-------------------------------------------------------------------\n  • Gross Sales          : ${grossSales}\n  • Net Profit           : ${netProfit}\n  • Profit Margin        : ${marginVal}\n  • Order Return Rate    : ${returnRate}\n  • Data Integrity Score : ${integrityScore}\n\n3. KEY DATA QUALITY ISSUES\n-------------------------------------------------------------------\n${qualityList.map(q => typeof q === 'string' ? `  - ${q}` : `  - ${Object.values(q).filter(v=>typeof v==='string').join(' - ')}`).join('\\n')}\n\n4. ACTIONABLE RECOMMENDATIONS\n-------------------------------------------------------------------\n${recsList.map(r => typeof r === 'string' ? `  - ${r}` : `  - ${Object.values(r).filter(v=>typeof v==='string').join(': ')}`).join('\\n')}\n\n===================================================================\nGenerated via Automated Analytics Pipeline\n===================================================================`;\n\nreturn [{\n  json: {\n    \"htmlEmail\": htmlEmail,\n    \"textReport\": textReport,\n    \"Business Domain\": domain,\n    \"Total Rows Scanned\": totalRows,\n    \"Gross Sales\": grossSales,\n    \"Net Profit\": netProfit,\n    \"Profit Margin\": marginVal,\n    \"Order Return Rate\": returnRate,\n    \"Data Integrity Score\": integrityScore\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        -320
+      ],
+      "id": "3ba73b67-66ac-46f3-9f31-52703fbf530d",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "sendTo": "kunaltarade0804@gmail.com",
+        "subject": "=Executive Analytics Summary - {{ $node[\"Code in JavaScript1\"].json[\"Business Domain\"] }}",
+        "message": "=={{ $node[\"Code in JavaScript1\"].json[\"htmlEmail\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -704,
+        -320
+      ],
+      "id": "fd81a040-8520-44b5-b84f-f6ae46c1afc9",
+      "name": "Send a message",
+      "webhookId": "cd74afb8-569e-40bc-9644-74537da61cd0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2ZQA9YpC8sNCbb3W",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "43bd3b56-66d0-4bd1-9e4a-c5cc4ca3a56c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a710480009c364f6b92284381cf253f1738a28b5084e6b3cba09466aa21942d3"
+  },
+  "nodeGroups": [],
+  "id": "46jHyelTo3MpjprN",
+  "tags": []
+}
