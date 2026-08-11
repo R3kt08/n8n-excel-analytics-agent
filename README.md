@@ -2,7 +2,7 @@
 
 ![n8n Workflow Diagram](assets/workflow-diagram.jpeg)
 
-![Executive Analytics Email Preview](assets/email-report-preview.png)
+![Executive Analytics Email Preview](assets/email-report-preview.jpg)
 
 An automated end-to-end data processing and executive reporting pipeline built using **n8n**, **Google Drive**, **Google Sheets**, **Google Gemini AI**, and **Gmail**. 
 
