@@ -2,6 +2,8 @@
 
 ![n8n Workflow Diagram](assets/workflow-diagram.jpeg)
 
+![Executive Analytics Email Preview](assets/email-report-preview.png)
+
 An automated end-to-end data processing and executive reporting pipeline built using **n8n**, **Google Drive**, **Google Sheets**, **Google Gemini AI**, and **Gmail**. 
 
 This workflow automatically ingests raw sales datasets, cleans and standardizes messy data fields, stages the data into Google Sheets, runs an AI-powered data audit and KPI extraction using Google Gemini Flash, and dispatches a styled executive HTML summary via Gmail.
